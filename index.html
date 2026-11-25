@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>كلمة الليلة</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
+html,body{margin:0;height:100%;background:#0f172a;font-family:system-ui,"Segoe UI",Tahoma,sans-serif;color:#fff;touch-action:manipulation;overflow:hidden}
+#app{display:flex;flex-direction:column;height:100%;max-width:480px;margin:auto;padding:8px}
+#hd{display:flex;justify-content:space-between;align-items:center;padding:4px 4px 8px}
+h1{margin:0;font-size:24px;color:#fbbf24}
+#hd button{font:inherit;border:0;border-radius:10px;padding:6px 12px;color:#fff;background:#334155}
+#msg{text-align:center;min-height:28px;font-weight:700;color:#fbbf24}
+#board{flex:1;display:grid;grid-template-rows:repeat(6,1fr);gap:6px;max-height:380px;margin:6px auto;width:min(100%,300px)}
+.row{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.t{display:flex;align-items:center;justify-content:center;font-size:30px;font-weight:800;border:2px solid #334155;border-radius:10px;background:#1e293b;transition:transform .25s}
+.t.f{border-color:#64748b}.t.c{background:#16a34a;border-color:#16a34a}.t.p{background:#d97706;border-color:#d97706}.t.a{background:#475569;border-color:#475569}
+.row.sh{animation:sh .3s}@keyframes sh{25%{transform:translateX(8px)}75%{transform:translateX(-8px)}}
+#kb{display:flex;flex-direction:column;gap:6px;padding:4px 0 8px}
+.kr{display:flex;gap:4px;justify-content:center}
+.k{flex:1;max-width:40px;height:46px;border:0;border-radius:8px;font:inherit;font-weight:700;font-size:18px;color:#fff;background:#475569;padding:0}
+.k.w{max-width:64px;font-size:14px;background:#2563eb}
+.k.c{background:#16a34a}.k.p{background:#d97706}.k.a{background:#1e293b;color:#64748b}
+.ov{position:fixed;inset:0;background:rgba(15,23,42,.94);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:20px;z-index:5}
+.hide{display:none}.ov p{margin:0;line-height:1.7;max-width:320px}.ov h2{margin:0;font-size:32px;color:#fbbf24}
+.bt{font:inherit;font-weight:700;font-size:18px;border:0;border-radius:14px;padding:10px 26px;color:#fff;background:#2563eb}
+</style></head><body>
+<div id="app"><div id="hd"><h1>🌙 كلمة الليلة</h1><span><button id="rnd">كلمة عشوائية</button> <button id="hp">؟</button></span></div>
+<div id="msg"></div><div id="board"></div><div id="kb"></div></div>
+<div class="ov hide" id="ov"><h2 id="ot"></h2><p id="od"></p><button class="bt" id="again">كلمة جديدة</button><button class="bt" id="cl" style="background:#334155">إغلاق</button></div>
+<div class="ov hide" id="help"><h2>إزاي تلعب؟</h2><p>خمّن كلمة من 4 حروف في 6 محاولات.<br>🟩 حرف صح ومكانه صح<br>🟧 الحرف موجود بس مكانه غلط<br>⬛ الحرف مش في الكلمة</p><p>الهمزات والتاء المربوطة بتتعامل زي حروفها العادية (أ=ا، ة=ه، ى=ي).</p><button class="bt" id="hx">تمام</button></div>
+<script>
+const norm=x=>x.replace(/[أإآ]/g,'ا').replace(/ى/g,'ي').replace(/ة/g,'ه');
+const WORDS=['كتاب','شباك','مطار','قطار','جبال','بحار','نهار','ليلة','نجمة','وردة','شجرة','فرحة','مدرس','مكتب','كرسي','سرير','ملعب','تفاح','بطيخ','سمكة','حصان','جمال','ثعلب','مصري','كشري','قهوة','صديق','حبيب','سلام','كلام','غيمة','رياح','ساعة','هاتف','شاشة','لعبة','مطبخ','حديد','ذهبي','فضول','صورة','مكيف','طبيب','ضابط','فنان','كاتب','نادي','شارع','مدير'].filter(w=>norm(w).length===4);
+
+const SV='night_word_v1';let sv={w:0,l:0,streak:0,best:0,dday:-1};try{Object.assign(sv,JSON.parse(localStorage.getItem(SV)||'{}'))}catch(e){}
+function persist(){try{localStorage.setItem(SV,JSON.stringify(sv))}catch(e){}}
+const KEYS=[['ض','ص','ث','ق','ف','غ','ع','ه','خ','ح','ج'],['ش','س','ي','ب','ل','ا','ت','ن','م','ك','ط'],['ENT','ئ','ء','ر','ز','و','ظ','د','ذ','DEL']];
+let ans,guesses,cur,over,daily;
+function dayNum(){return Math.floor((Date.now()+2*3600e3)/864e5)}
+const board=document.getElementById('board'),kb=document.getElementById('kb'),msg=document.getElementById('msg');
+function build(){board.innerHTML='';for(let r=0;r<6;r++){const d=document.createElement('div');d.className='row';for(let c=0;c<4;c++){const t=document.createElement('div');t.className='t';d.appendChild(t)}board.appendChild(d)}
+ kb.innerHTML='';const rows=[['ض','ص','ث','ق','ف','غ','ع','ه','خ','ح','ج'],['ش','س','ي','ب','ل','ا','ت','ن','م','ك'],['ENT','ط','ر','ز','و','ظ','د','ذ','DEL'],['ئ','ء','ؤ']];
+ for(const row of rows){const d=document.createElement('div');d.className='kr';for(const k of row){const b=document.createElement('button');b.className='k'+(k==='ENT'||k==='DEL'?' w':'');b.textContent=k==='ENT'?'تأكيد':k==='DEL'?'مسح':k;b.dataset.k=k;b.onclick=()=>key(k);d.appendChild(b)}kb.appendChild(d)}}
+let ansShow='',ansPick='';
+function start(isDaily){let w;if(isDaily)w=WORDS[dayNum()%WORDS.length];else w=WORDS[Math.floor(Math.random()*WORDS.length)];ans=norm(w);ansShow=w;daily=isDaily;guesses=[];cur='';over=false;msg.textContent=isDaily?'كلمة النهارده 🌙':'كلمة عشوائية 🎲';build();document.getElementById('ov').classList.add('hide')}
+function draw(){const rows=board.children;for(let r=0;r<6;r++){const ts=rows[r].children;for(let c=0;c<4;c++){const t=ts[c];t.className='t';t.textContent='';if(r<guesses.length){const g=guesses[r];t.textContent=g.w[c];t.classList.add(g.s[c])}else if(r===guesses.length&&c<cur.length){t.textContent=cur[c];t.classList.add('f')}}}
+ const st={};for(const g of guesses)for(let i=0;i<4;i++){const l=g.w[i],s=g.s[i];if(st[l]==='c')continue;if(s==='c'||!st[l]||(s==='p'&&st[l]==='a'))st[l]=s}
+ for(const b of kb.querySelectorAll('.k')){b.classList.remove('c','p','a');const s=st[b.dataset.k];if(s)b.classList.add(s)}}
+function score(w){const s=['a','a','a','a'];const rest=ans.split('');for(let i=0;i<4;i++)if(w[i]===ans[i]){s[i]='c';rest[i]=null}for(let i=0;i<4;i++)if(s[i]!=='c'){const j=rest.indexOf(w[i]);if(j>=0){s[i]='p';rest[j]=null}}return s}
+function key(k){if(over)return;if(k==='DEL'){cur=cur.slice(0,-1)}else if(k==='ENT'){if(cur.length<4){shake('اكتب 4 حروف');return}
+  
+  const s=score(cur);guesses.push({w:cur,s});const won=cur===ans;cur='';draw();
+  if(won){over=true;sv.w++;sv.streak++;sv.best=Math.max(sv.best,sv.streak);persist();finish(true)}else if(guesses.length>=6){over=true;sv.l++;sv.streak=0;persist();finish(false)}return}
+ else if(cur.length<4&&'ابتثجحخدذرزسشصضطظعغفقكلمنهويئءؤ'.includes(k))cur+=k;draw()}
+function shake(t){msg.textContent=t;const r=board.children[guesses.length];if(r){r.classList.remove('sh');void r.offsetWidth;r.classList.add('sh')}}
+function finish(won){setTimeout(()=>{document.getElementById('ot').textContent=won?'🎉 صح! في '+guesses.length+' محاولات':'😔 الكلمة كانت: '+ansShow;document.getElementById('od').innerHTML='فوزك: '+sv.w+' · خسارتك: '+sv.l+'<br>🔥 سلسلة: '+sv.streak+' (أحسن '+sv.best+')';document.getElementById('ov').classList.remove('hide')},700)}
+addEventListener('keydown',e=>{if(e.key==='Enter')key('ENT');else if(e.key==='Backspace')key('DEL')});
+document.getElementById('again').onclick=()=>start(false);document.getElementById('cl').onclick=()=>document.getElementById('ov').classList.add('hide');
+document.getElementById('rnd').onclick=()=>start(false);
+document.getElementById('hp').onclick=()=>document.getElementById('help').classList.remove('hide');document.getElementById('hx').onclick=()=>document.getElementById('help').classList.add('hide');
+start(true);if(!sv.w&&!sv.l)document.getElementById('help').classList.remove('hide');
+window.__t={key,start,st:()=>({ans,guesses,over,WORDS}),score};
+</script></body></html>
